@@ -1,24 +1,40 @@
-# ✅ utils/summarizer.py
-from openai import OpenAI
 import os
+import requests
+from dotenv import load_dotenv
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()
 
-def generate_summary(text: str) -> str:
-    """
-    Generates a summary of the input text in ≤150 words using OpenAI chat API.
-    """
-    prompt = f"Summarize this document in 150 words or less:\n\n{text}"
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
+if not DEEPSEEK_API_KEY:
+    raise ValueError("DEEPSEEK_API_KEY not found in environment variables.")
+
+def generate_summary(text):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful summarizer that condenses documents."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that summarizes documents."},
+                {"role": "user", "content": f"Summarize this document in less than 150 words:\n\n{text}"}
+            ]
+        }
+
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers=headers,
+            json=body,
+            timeout=30
         )
-        return response.choices[0].message.content.strip()
+        response.raise_for_status()
+        
+        try:
+            return response.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError):
+            return f"Unexpected response format: {response.text}"
+
     except Exception as e:
-        return f"Error generating summary: {str(e)}"
+        return f"Error generating summary: {e}"

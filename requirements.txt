@@ -1,8 +1,20 @@
-streamlit
-requests
+# Core backend
 fastapi
 uvicorn
-openai
-pdfplumber
-python-dotenv
+pydantic
 python-multipart
+requests
+python-dotenv
+
+# PDF file reading
+pdfplumber
+
+# Frontend
+streamlit
+
+# Optional improvements
+tqdm         # Progress bars if needed
+httpx        # Alternative to requests (useful in async contexts)
+
+# Compatibility (optional but recommended)
+certifi      # Ensures SSL certificates are valid in some environments

@@ -1,41 +1,60 @@
-# ✅ utils/qa_module.py
-from openai import OpenAI
 import os
+import requests
+from dotenv import load_dotenv
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()
 
-def answer_question(question: str, document: str) -> tuple[str, str]:
-    """
-    Answers a question using the given document and provides justification.
-    Returns: (answer, justification)
-    """
-    prompt = f"""
-    Read the following document and answer the question. Provide your answer and then cite the paragraph or section you used to support your answer.
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-    Document:
-    {document}
+if not DEEPSEEK_API_KEY:
+    raise ValueError("DEEPSEEK_API_KEY not found in environment variables.")
 
-    Question: {question}
-    """
-
+def answer_question(question, document_text):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an expert assistant that answers precisely with justification."},
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        prompt = f"""Read the document below and answer the following question. Then provide a short justification referencing relevant sections of the document.
+
+Document:
+{document_text}
+
+Question:
+{question}
+"""
+
+        body = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are a document reasoning assistant."},
                 {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
+            ]
+        }
+
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers=headers,
+            json=body,
+            timeout=30
         )
+        response.raise_for_status()
+        data = response.json()
 
-        full_response = response.choices[0].message.content.strip()
+        # Safe extraction
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-        # Optional: naive separation if you format your prompt well
-        if "Justification:" in full_response:
-            answer_part, justification = full_response.split("Justification:", 1)
-            return answer_part.strip(), justification.strip()
+        if not content:
+            return "No response from model.", "Empty or unexpected response format."
+
+        if "Justification:" in content:
+            answer, justification = content.split("Justification:", 1)
         else:
-            return full_response, "Justification not clearly found."
+            answer = content
+            justification = "Not explicitly provided."
+
+        return answer.strip(), justification.strip()
 
     except Exception as e:
-        return "Error processing question.", str(e)
+        return "Error answering question.", str(e)

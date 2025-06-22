@@ -1,80 +1,97 @@
-# ✅ utils/quiz_module.py
-from openai import OpenAI
 import os
+import requests
+from dotenv import load_dotenv
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+load_dotenv()
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-def generate_quiz(document: str) -> list[str]:
-    """
-    Generates 3 logic/comprehension questions from the given document.
-    """
-    prompt = f"""
-    Based on the following document, create 3 logic-based or comprehension-focused questions that test understanding. Number them 1 to 3.
+if not DEEPSEEK_API_KEY:
+    raise ValueError("DEEPSEEK_API_KEY not found in environment variables.")
 
-    Document:
-    {document}
-    """
-
+def generate_quiz(document_text):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a tutor bot who makes thoughtful questions."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+        prompt = f"""Generate three logic-based or comprehension-focused questions based on the document below. Only return the questions as a numbered list.
 
-        raw = response.choices[0].message.content.strip()
-        lines = raw.split("\n")
-        questions = [line.lstrip("1234567890. ") for line in lines if line.strip()]
-        return questions[:3]
+Document:
+{document_text}
+"""
+
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        body = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant that creates comprehension questions."},
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=body, timeout=30)
+        response.raise_for_status()
+        content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+
+        if not content:
+            return ["Error: Empty response from quiz generation."]
+
+        return [q.strip() for q in content.strip().split('\n') if q.strip()]
 
     except Exception as e:
-        return [f"Error generating quiz: {str(e)}"]
+        return [f"Error generating quiz: {e}"]
 
 
-def evaluate_answers(document: str, user_answers: list[str]) -> list[dict]:
-    """
-    Evaluates user answers and provides feedback with correctness and justification.
-    """
-    prompt = f"""
-    Evaluate the following user answers against the document. For each, give:
-    - Original question
-    - User answer
-    - Correctness (Yes/No)
-    - Justification
-
-    Document:
-    {document}
-
-    User Answers:
-    {user_answers}
-    """
-
+def evaluate_answers(document_text, user_answers):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a logical evaluator bot."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+        questions = generate_quiz(document_text)
+        results = []
 
-        text = response.choices[0].message.content.strip()
+        for i, question in enumerate(questions):
+            user_answer = user_answers[i] if i < len(user_answers) else ""
 
-        # NOTE: This could be parsed more robustly based on format
-        feedback_list = []
-        for i, line in enumerate(text.split("\n\n")):
-            feedback_list.append({
-                "question": f"Q{i+1}",
-                "user_answer": user_answers[i] if i < len(user_answers) else "",
-                "correct": "Yes" if "yes" in line.lower() else "No",
-                "justification": line.strip()
+            prompt = f"""
+Document:
+{document_text}
+
+Question: {question}
+User's Answer: {user_answer}
+Evaluate if this is correct. Say True/False and justify it.
+"""
+
+            headers = {
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json"
+            }
+
+            body = {
+                "model": "deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": "You are a teaching assistant that gives feedback on answers."},
+                    {"role": "user", "content": prompt}
+                ]
+            }
+
+            response = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=body, timeout=30)
+            response.raise_for_status()
+            result = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+
+            if not result:
+                result = "No justification provided by model."
+
+            results.append({
+                "question": question,
+                "user_answer": user_answer,
+                "correct": "True" in result,
+                "justification": result.strip()
             })
 
-        return feedback_list
+        return results
 
     except Exception as e:
-        return [{"question": f"Q{i+1}", "user_answer": user_answers[i], "correct": "Error", "justification": str(e)} for i in range(len(user_answers))]
+        return [{
+            "question": "N/A",
+            "user_answer": "N/A",
+            "correct": False,
+            "justification": f"Error evaluating answers: {e}"
+        }]
