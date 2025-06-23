@@ -1,4 +1,3 @@
-# backend/main.py
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -34,6 +33,7 @@ class ChallengeRequest(BaseModel):
 
 class EvaluateRequest(BaseModel):
     document: str
+    questions: list[str]
     user_answers: list[str]
 
 @app.post("/upload")
@@ -45,7 +45,6 @@ async def upload_file(file: UploadFile = File(...)):
         return {"text": text, "summary": summary}
     except Exception as e:
         return {"error": f"Error reading file: {str(e)}"}
-
 
 @app.post("/ask")
 async def ask_question(req: QuestionRequest):
@@ -59,9 +58,8 @@ async def challenge_me(req: ChallengeRequest):
 
 @app.post("/evaluate")
 async def evaluate(req: EvaluateRequest):
-    results = evaluate_answers(req.document, req.user_answers)
+    results = evaluate_answers(req.document, req.questions, req.user_answers)
     return {"results": results}
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

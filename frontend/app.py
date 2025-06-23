@@ -11,9 +11,12 @@ load_dotenv()
 st.set_page_config(page_title="🧠 Smart Document Assistant", layout="centered")
 st.title("🧠 Smart Assistant for Document Summarization and Reasoning")
 
-# Session state to persist document content if needed
+# Session state initialization
 if "doc_text" not in st.session_state:
     st.session_state.doc_text = ""
+
+if "quiz_questions" not in st.session_state:
+    st.session_state.quiz_questions = []
 
 # Upload File Section
 st.header("📄 Upload Your Document")
@@ -22,7 +25,7 @@ uploaded_file = st.file_uploader("Upload a PDF or TXT file", type=["pdf", "txt"]
 if uploaded_file:
     with st.spinner("Reading and processing your document..."):
         try:
-            # Send file with correct tuple (filename, content, MIME type)
+            # Send file to backend
             files = {
                 "file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
             }
@@ -34,11 +37,14 @@ if uploaded_file:
                 if "error" in data:
                     st.error(data["error"])
                 else:
+                    # Reset state for new doc
                     st.session_state.doc_text = data["text"]
+                    st.session_state.quiz_questions = []
+
                     st.subheader("📌 Auto Summary")
                     st.write(data["summary"])
 
-                    # Select Mode
+                    # Interaction Mode
                     st.subheader("💡 Choose a Mode")
                     mode = st.radio("Select interaction mode:", ["Ask Anything", "Challenge Me"])
 
@@ -60,32 +66,38 @@ if uploaded_file:
 
                     elif mode == "Challenge Me":
                         st.write("Generating logic-based questions from the document...")
-                        quiz_response = requests.post("http://localhost:8000/challenge", json={"document": st.session_state.doc_text})
-                        if quiz_response.status_code == 200:
-                            quiz_data = quiz_response.json()
-                            user_answers = []
 
-                            for i, q in enumerate(quiz_data["questions"]):
-                                user_input = st.text_input(f"Q{i+1}: {q}", key=f"quiz_q{i}")
-                                user_answers.append(user_input)
+                        # Generate questions only if not already present
+                        if not st.session_state.quiz_questions:
+                            quiz_response = requests.post("http://localhost:8000/challenge", json={"document": st.session_state.doc_text})
+                            if quiz_response.status_code == 200:
+                                quiz_data = quiz_response.json()
+                                st.session_state.quiz_questions = quiz_data["questions"]
+                            else:
+                                st.error("Error generating quiz questions.")
+                                st.stop()
 
-                            if st.button("Submit Answers"):
-                                evaluation_response = requests.post("http://localhost:8000/evaluate", json={
-                                    "document": st.session_state.doc_text,
-                                    "user_answers": user_answers
-                                })
-                                if evaluation_response.status_code == 200:
-                                    feedback = evaluation_response.json()
-                                    st.subheader("📝 Feedback")
-                                    for i, f in enumerate(feedback["results"]):
-                                        st.markdown(f"**Q{i+1}:** {f['question']}")
-                                        st.markdown(f"- Your Answer: {f['user_answer']}")
-                                        st.markdown(f"- Correctness: {f['correct']}")
-                                        st.markdown(f"- Justification: _{f['justification']}_")
-                                else:
-                                    st.error("Could not evaluate answers.")
-                        else:
-                            st.error("Error generating quiz questions.")
+                        user_answers = []
+                        for i, q in enumerate(st.session_state.quiz_questions):
+                            user_input = st.text_input(f"Q{i+1}: {q}", key=f"quiz_q{i}")
+                            user_answers.append(user_input)
+
+                        if st.button("Submit Answers"):
+                            evaluation_response = requests.post("http://localhost:8000/evaluate", json={
+                                "document": st.session_state.doc_text,
+                                "questions": st.session_state.quiz_questions,
+                                "user_answers": user_answers
+                            })
+                            if evaluation_response.status_code == 200:
+                                feedback = evaluation_response.json()
+                                st.subheader("📝 Feedback")
+                                for i, f in enumerate(feedback["results"]):
+                                    st.markdown(f"**Q{i+1}:** {f['question']}")
+                                    st.markdown(f"- Your Answer: {f['user_answer']}")
+                                    st.markdown(f"- Correctness: {f['correct']}")
+                                    st.markdown(f"- Justification: _{f['justification']}_")
+                            else:
+                                st.error("Could not evaluate answers.")
             else:
                 st.error(f"Server error: {response.status_code}")
 
