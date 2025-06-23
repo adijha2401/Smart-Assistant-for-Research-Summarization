@@ -108,6 +108,12 @@ This will open a browser tab at: `http://localhost:8501`
 
 ---
 
+## 🚀 Output Screenshots
+
+The screenshots of the AI Assistant can be found in the folder named **_output pics_**.
+
+---
+
 ## 🔍 Troubleshooting
 
 * `ModuleNotFoundError: No module named 'dotenv'`
