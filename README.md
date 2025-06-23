@@ -50,6 +50,10 @@ python -m venv venv
 source venv/bin/activate        # Mac/Linux
 venv\Scripts\activate.bat       # Windows
 ```
+> ⚠️ If you're using PowerShell and run into execution policy errors, run this before activating Virtual Environment:
+```
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
 
 ### 3. Install Requirements
 
