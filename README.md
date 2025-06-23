@@ -38,39 +38,47 @@ Smart-Assistant-for-Research-Summarization/
 
 ### 1. Clone the Repository
 
+```
 git clone https://github.com/your-username/Smart-Assistant-for-Research-Summarization.git
 cd Smart-Assistant-for-Research-Summarization
+```
 
 ### 2. Create & Activate Virtual Environment (Optional but Recommended)
 
+```
 python -m venv venv
 source venv/bin/activate        # Mac/Linux
 venv\Scripts\activate.bat       # Windows
+```
 
 ### 3. Install Requirements
 
+```
 pip install -r requirements.txt
+```
 
 ### 4. Set Up Your `.env` File
 
 Create a `.env` file in the root directory:
-
+```
 OPENAI_API_KEY=your_openai_api_key_here
-
+```
 ---
 
 ## 🧠 Usage Guide
 
 ### Step 1: Run the Backend (FastAPI)
 
+```
 uvicorn backend.main:app --reload
-
+```
 Server will run at: `http://localhost:8000`
 
 ### Step 2: Run the Frontend (Streamlit)
 
+```
 streamlit run frontend/app.py
-
+```
 This will open a browser tab at: `http://localhost:8501`
 
 ---
