@@ -18,7 +18,7 @@ A multi-modal AI-powered assistant designed to process PDF and TXT files, auto-g
 
 A simple flowchart of how the data flows in this app.
 
-<img src="https://github.com/user-attachments/assets/9bb2edb8-b640-4924-9735-9fe517108984" width="500" height="500"/>
+<img src="https://github.com/user-attachments/assets/9bb2edb8-b640-4924-9735-9fe517108984" width="500" height="700"/>
 
 ---
 
